@@ -8,7 +8,15 @@ import { randomBytes, randomUUID } from 'node:crypto';
 const { Pool } = pg;
 const app = express();
 const port = Number(process.env.API_PORT || 4000);
-const pool = new Pool({ connectionString: process.env.DATABASE_URL || process.env.NEON_DATABASE_URL || process.env.POSTGRES_URL, ssl: { rejectUnauthorized: false } });
+const databaseUrl = process.env.DATABASE_URL || process.env.NEON_POSTGRES_URL || process.env.NEON_DATABASE_URL || process.env.POSTGRES_URL;
+
+if (!databaseUrl) {
+  console.error('[EduLoLos API] DATABASE_URL belum tersedia. Salin NEON_POSTGRES_URL dari environment project ke file .env lokal.');
+  process.exit(1);
+}
+
+const pool = new Pool({ connectionString: databaseUrl, ssl: { rejectUnauthorized: false } });
+pool.on('error', (error) => console.error('[EduLoLos API] Database connection error:', error.message));
 const cookie = 'edulolos_session';
 app.use(express.json());
 app.use(cookieParser());
