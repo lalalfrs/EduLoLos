@@ -61,11 +61,13 @@ export const App: React.FC = () => {
     const profile = await getProfile(authUser.id);
     const mappedProfile = mapProfile(profile);
     setUser({ ...mappedProfile, daysUntilUTBK: getDaysUntilUTBK() });
-    const needsAccountSetup = !profile?.onboarding_completed
-      || !mappedProfile.school.trim()
-      || !mappedProfile.targetPTN.trim()
-      || !mappedProfile.targetCampus.trim()
-      || !mappedProfile.targetMajor.trim();
+    const requiredProfileFields = [
+      mappedProfile.school,
+      mappedProfile.targetPTN,
+      mappedProfile.targetCampus,
+      mappedProfile.targetMajor,
+    ];
+    const needsAccountSetup = requiredProfileFields.some((value) => !value?.trim());
     setOnboardingRequired(needsAccountSetup);
     const [tasks, sessions] = await Promise.all([getUserTasks(authUser.id), getUserStudySessions(authUser.id)]);
     setStudySessions(sessions as ProgressSession[]);
