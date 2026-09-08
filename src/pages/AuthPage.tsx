@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
-import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, UserRound } from 'lucide-react';
 import { signUp, signIn } from '../lib/supabase';
 
 interface AuthPageProps {
   onAuthSuccess: () => void;
+  onGuestAccess: () => void;
 }
 
-export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
+export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess, onGuestAccess }) => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -174,6 +175,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
               {loading ? 'Memproses...' : isSignUp ? 'Daftar' : 'Masuk'}
             </button>
           </form>
+
+          <div className="mt-5">
+            <div className="flex items-center gap-3" aria-hidden="true"><div className="h-px flex-1 bg-surface-container" /><span className="text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">atau</span><div className="h-px flex-1 bg-surface-container" /></div>
+            <button type="button" onClick={onGuestAccess} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-surface-container px-4 py-2.5 text-sm font-bold text-on-surface transition-colors hover:bg-surface-container-low"><UserRound className="h-4 w-4" />Lanjut sebagai Guest</button>
+            <p className="mt-2 text-center text-[11px] text-on-surface-variant">Data guest hanya tersedia di perangkat ini dan tidak disinkronkan.</p>
+          </div>
 
           <div className="mt-6 text-center">
             <p className="text-sm text-on-surface-variant">

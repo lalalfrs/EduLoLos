@@ -38,6 +38,7 @@ export const App: React.FC = () => {
   const [isLiveTutorOpen, setIsLiveTutorOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
   const [session, setSession] = useState<any>(undefined);
+  const [isGuest, setIsGuest] = useState(false);
   const [user, setUser] = useState<UserProfile>(emptyUser);
   const [dailyTasks, setDailyTasks] = useState<TaskItem[]>([]);
   const [studySessions, setStudySessions] = useState<ProgressSession[]>([]);
@@ -69,6 +70,21 @@ export const App: React.FC = () => {
     return () => data.subscription.unsubscribe();
   }, []);
 
+  const handleGuestAccess = () => {
+    setIsGuest(true);
+    setSession(null);
+    setUser(emptyUser);
+    setDailyTasks([]);
+    setStudySessions([]);
+    setOnboardingRequired(false);
+  };
+
+  const handleExitGuest = () => {
+    setIsGuest(false);
+    setCurrentPage('dashboard');
+    setLoading(false);
+  };
+
   const handleToggleDarkMode = () => {
     const nextMode = !isDarkMode;
     setIsDarkMode(nextMode);
@@ -78,7 +94,7 @@ export const App: React.FC = () => {
 
   const handleUpdateUser = async (updatedUser: UserProfile) => {
     setUser(updatedUser);
-    if (session) await updateProfile(session.id, {
+    if (session && !isGuest) await updateProfile(session.id, {
       display_name: updatedUser.name, school: updatedUser.school,
       target_ptn: updatedUser.targetPTN, target_major: updatedUser.targetMajor,
       target_campus: updatedUser.targetCampus, updated_at: new Date().toISOString(),
@@ -90,11 +106,11 @@ export const App: React.FC = () => {
     if (!task) return;
     const updated = { ...task, completed: !task.completed };
     setDailyTasks((items) => items.map((item) => item.id === taskId ? updated : item));
-    await updateTask(taskId, { completed: updated.completed });
+    if (!isGuest) await updateTask(taskId, { completed: updated.completed });
   };
 
   const handleSaveTask = async (task: TaskItem) => {
-    if (!session) return;
+    if (!session || isGuest) return;
     if (dailyTasks.some((item) => item.id === task.id)) {
       await updateTask(task.id, { title: task.title, completed: task.completed, subject: task.subtitle || '' });
       setDailyTasks((items) => items.map((item) => item.id === task.id ? task : item));
@@ -106,7 +122,7 @@ export const App: React.FC = () => {
 
   const handleDeleteTask = async (taskId: string) => {
     setDailyTasks((items) => items.filter((item) => item.id !== taskId));
-    await deleteTask(taskId);
+    if (!isGuest) await deleteTask(taskId);
   };
 
   const handleExport = (format: 'json' | 'csv') => {
@@ -124,7 +140,7 @@ export const App: React.FC = () => {
   };
 
   if (loading) return <div className="min-h-screen bg-surface flex items-center justify-center text-on-surface">Memuat EduLoLos...</div>;
-  if (!session) return <AuthPage onAuthSuccess={() => getSession().then((currentSession) => loadUserData(currentSession?.user))} />;
+  if (!session && !isGuest) return <AuthPage onAuthSuccess={() => getSession().then((currentSession) => loadUserData(currentSession?.user))} onGuestAccess={handleGuestAccess} />;
   if (onboardingRequired) return <OnboardingPage userId={session.id} displayName={user.name || session.email?.split('@')[0] || ''} onComplete={() => loadUserData(session)} />;
 
   const completedSessionCount = dailyTasks.filter((task) => task.completed).length;
@@ -134,6 +150,7 @@ export const App: React.FC = () => {
       <Sidebar currentPage={currentPage} onSelectPage={setCurrentPage} daysRemaining={user.daysUntilUTBK} targetPTN={user.targetPTN} targetMajor={user.targetMajor} />
       <Header isDarkMode={isDarkMode} onToggleDarkMode={handleToggleDarkMode} streakDays={user.streakDays} completedSessions={completedSessionCount} targetSessions={user.dailyTargetSessions} user={user} onOpenEditProfile={() => setIsEditProfileOpen(true)} />
       <main id="main-viewport" className="flex-1 lg:pl-72 pt-16 pb-20 lg:pb-10 px-4 md:px-8 max-w-7xl w-full mx-auto">
+        {isGuest && <div className="mb-2 mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary/20 bg-primary/10 px-4 py-3 text-sm text-on-surface"><span><strong>Mode Guest:</strong> progres ini hanya sementara di perangkat ini.</span><button type="button" onClick={handleExitGuest} className="font-bold text-primary hover:text-primary-container">Buat akun untuk menyimpan</button></div>}
         <div className="py-4 md:py-6">
           <AnimatePresence mode="wait">
             {currentPage === 'dashboard' && <motion.div key="dashboard" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><div className="flex flex-col gap-6"><DashboardView onNavigate={setCurrentPage} onOpenLiveTutor={() => setIsLiveTutorOpen(true)} tasks={dailyTasks} onToggleTask={handleToggleTask} onSaveTask={handleSaveTask} onDeleteTask={handleDeleteTask} user={user} onOpenEditProfile={() => setIsEditProfileOpen(true)} /><ProgressPanel sessions={studySessions} user={user} onExport={handleExport} /></div></motion.div>}
@@ -146,7 +163,7 @@ export const App: React.FC = () => {
       <MobileNav currentPage={currentPage} onSelectPage={setCurrentPage} />
       <LiveTutorModal isOpen={isLiveTutorOpen} onClose={() => setIsLiveTutorOpen(false)} />
       <EditProfileModal isOpen={isEditProfileOpen} onClose={() => setIsEditProfileOpen(false)} user={user} onSaveProfile={handleUpdateUser} />
-      <button onClick={() => signOut()} className="fixed bottom-4 right-4 z-40 rounded-xl bg-surface-container px-3 py-2 text-xs font-semibold text-on-surface-variant hover:text-on-surface">Keluar</button>
+      <button onClick={() => isGuest ? handleExitGuest() : signOut()} className="fixed bottom-4 right-4 z-40 rounded-xl bg-surface-container px-3 py-2 text-xs font-semibold text-on-surface-variant hover:text-on-surface">{isGuest ? 'Keluar Guest' : 'Keluar'}</button>
     </div>
   );
 };
