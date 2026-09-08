@@ -21,3 +21,4 @@ View your app in AI Studio: https://ai.studio/apps/c2864e66-70cf-40d3-b121-94fd0
 "# EduLoLos" 
 "# EduLoLos" 
 "# EduLost" 
+"# EduLost" 
