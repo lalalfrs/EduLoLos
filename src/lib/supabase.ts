@@ -14,8 +14,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     if (!response.ok) throw new Error(body?.error || `Request gagal (${response.status})`);
     return body as T;
   } catch (error: any) {
-    if (error?.name === 'AbortError') throw new Error('Server API tidak merespons. Jalankan npm run api terlebih dahulu.');
-    if (error instanceof TypeError) throw new Error('API lokal tidak terhubung. Jalankan npm run api dan pastikan port 4000 aktif.');
+    if (error?.name === 'AbortError') throw new Error('Server API tidak merespons. Periksa deployment API dan environment Neon.');
+    if (error instanceof TypeError) throw new Error(API_BASE === '/api' ? 'API production tidak terhubung. Pastikan deployment memiliki route /api dan environment Neon.' : 'API lokal tidak terhubung. Jalankan npm run api dan pastikan port 4000 aktif.');
     throw error;
   } finally {
     window.clearTimeout(timeout);
