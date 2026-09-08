@@ -20,3 +20,4 @@ View your app in AI Studio: https://ai.studio/apps/c2864e66-70cf-40d3-b121-94fd0
    `npm run dev`
 "# EduLoLos" 
 "# EduLoLos" 
+"# EduLost" 
