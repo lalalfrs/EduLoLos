@@ -118,7 +118,8 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({ userId, displayN
         });
         setTimeout(() => onComplete(), 1000);
       } catch (error) {
-        console.error('Error completing onboarding:', error);
+        console.error('[v0] Error completing onboarding:', error);
+        setError(error instanceof Error ? error.message : 'Setup akun gagal. Periksa koneksi lalu coba lagi.');
       } finally {
         setLoading(false);
       }
