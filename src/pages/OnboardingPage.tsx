@@ -12,6 +12,7 @@ interface OnboardingPageProps {
 export const OnboardingPage: React.FC<OnboardingPageProps> = ({ userId, displayName, onComplete }) => {
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const [formData, setFormData] = useState({
       school: '',
     targetPTN: '',
@@ -43,6 +44,14 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({ userId, displayN
       placeholder: 'Teknik Elektro - ITS',
     },
     {
+      title: 'Target Kampus',
+      subtitle: 'Kampus atau lokasi kampus yang ingin Anda tuju',
+      icon: '🏛️',
+      field: 'targetCampus',
+      type: 'text',
+      placeholder: 'Kampus utama / lokasi kampus',
+    },
+    {
       title: 'Target Program Studi',
       subtitle: 'Spesifik program atau jurusan yang diinginkan',
       icon: '📖',
@@ -70,6 +79,7 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({ userId, displayN
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
+    setError('');
     setFormData((prev) => ({
       ...prev,
       [name]: value,
@@ -77,6 +87,22 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({ userId, displayN
   };
 
   const handleNext = async () => {
+    const requiredFields: Record<string, string> = {
+      school: 'Nama sekolah wajib diisi.',
+      targetPTN: 'Target PTN wajib diisi.',
+      targetCampus: 'Target kampus wajib diisi.',
+      targetMajor: 'Target jurusan wajib diisi.',
+    };
+    const currentField = currentStep.field;
+    if (currentField && currentField !== 'weeklyGoalMinutes' && !String(formData[currentField as keyof typeof formData]).trim()) {
+      setError(requiredFields[currentField] || 'Field ini wajib diisi.');
+      return;
+    }
+    if (currentField === 'weeklyGoalMinutes' && Number(formData.weeklyGoalMinutes) < 30) {
+      setError('Target belajar minimal 30 menit per minggu.');
+      return;
+    }
+    setError('');
     if (isLastStep) {
       setLoading(true);
       try {
@@ -154,6 +180,12 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({ userId, displayN
                 className="w-full px-4 py-3 rounded-xl bg-surface-container-low border border-surface-container text-on-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 font-semibold"
               />
             </div>
+          )}
+
+          {error && (
+            <p role="alert" className="mb-5 rounded-xl border border-error/30 bg-error/10 px-4 py-3 text-sm font-medium text-error">
+              {error}
+            </p>
           )}
 
           {/* Navigation */}
