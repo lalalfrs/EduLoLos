@@ -44,6 +44,7 @@ export const App: React.FC = () => {
   const [studySessions, setStudySessions] = useState<ProgressSession[]>([]);
   const [onboardingRequired, setOnboardingRequired] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   const loadUserData = async (authUser: any) => {
     if (!authUser) { setSession(null); setLoading(false); return; }
@@ -93,6 +94,25 @@ export const App: React.FC = () => {
     setIsGuest(false);
     setCurrentPage('dashboard');
     setLoading(false);
+  };
+
+  const handleSignOut = async () => {
+    if (isSigningOut) return;
+    setIsSigningOut(true);
+    try {
+      await signOut();
+      setSession(null);
+      setIsGuest(false);
+      setUser(emptyUser);
+      setDailyTasks([]);
+      setStudySessions([]);
+      setOnboardingRequired(false);
+      setCurrentPage('dashboard');
+    } catch (error) {
+      console.error('[v0] Logout failed:', error);
+    } finally {
+      setIsSigningOut(false);
+    }
   };
 
   const handleToggleDarkMode = () => {
@@ -173,7 +193,15 @@ export const App: React.FC = () => {
       <MobileNav currentPage={currentPage} onSelectPage={setCurrentPage} />
       <LiveTutorModal isOpen={isLiveTutorOpen} onClose={() => setIsLiveTutorOpen(false)} />
       <EditProfileModal isOpen={isEditProfileOpen} onClose={() => setIsEditProfileOpen(false)} user={user} onSaveProfile={handleUpdateUser} />
-      <button onClick={() => isGuest ? handleExitGuest() : signOut()} className="fixed bottom-4 right-4 z-40 rounded-xl bg-surface-container px-3 py-2 text-xs font-semibold text-on-surface-variant hover:text-on-surface">{isGuest ? 'Keluar Guest' : 'Keluar'}</button>
+      <button
+        type="button"
+        onClick={isGuest ? handleExitGuest : handleSignOut}
+        disabled={isSigningOut}
+        aria-busy={isSigningOut}
+        className="fixed bottom-4 right-4 z-40 rounded-xl bg-surface-container px-3 py-2 text-xs font-semibold text-on-surface-variant hover:text-on-surface disabled:cursor-wait disabled:opacity-60"
+      >
+        {isSigningOut ? 'Keluar...' : isGuest ? 'Keluar Guest' : 'Keluar'}
+      </button>
     </div>
   );
 };

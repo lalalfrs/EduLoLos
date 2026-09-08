@@ -26,7 +26,17 @@ const requireAuth = async (req: express.Request, res: express.Response) => { con
 const startSession = async (res: express.Response, userId: string) => { const id = randomBytes(32).toString('hex'); await pool.query("INSERT INTO sessions (id,user_id,expires_at) VALUES ($1,$2,NOW() + INTERVAL '7 days')", [id, userId]); res.cookie(cookie, id, { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 604800000 }); };
 app.post('/api/auth/signup', async (req, res) => { try { const email = String(req.body.email || '').toLowerCase().trim(); const password = String(req.body.password || ''); const displayName = String(req.body.displayName || ''); if (!email || password.length < 6) return res.status(400).json({ error: 'Email dan password minimal 6 karakter wajib diisi.' }); const id = randomUUID(); await pool.query('INSERT INTO users (id,email,password_hash) VALUES ($1,$2,$3)', [id, email, await bcrypt.hash(password, 12)]); await pool.query('INSERT INTO profiles (id,display_name) VALUES ($1,$2)', [id, displayName]); await startSession(res, id); res.status(201).json({ user: { id, email } }); } catch (e: any) { res.status(e.code === '23505' ? 409 : 500).json({ error: e.code === '23505' ? 'Email sudah terdaftar.' : 'Pendaftaran gagal.' }); } });
 app.post('/api/auth/signin', async (req, res) => { const email = String(req.body.email || '').toLowerCase().trim(); const result = await pool.query('SELECT id,email,password_hash FROM users WHERE email = $1', [email]); const user = result.rows[0]; if (!user || !(await bcrypt.compare(String(req.body.password || ''), user.password_hash))) return res.status(401).json({ error: 'Email atau password tidak valid.' }); await startSession(res, user.id); res.json({ user: { id: user.id, email: user.email } }); });
-app.post('/api/auth/signout', async (req, res) => { const token = req.cookies[cookie]; if (token) await pool.query('DELETE FROM sessions WHERE id = $1', [token]); res.clearCookie(cookie); res.sendStatus(204); });
+app.post('/api/auth/signout', async (req, res) => {
+  try {
+    const token = req.cookies[cookie];
+    if (token) await pool.query('DELETE FROM sessions WHERE id = $1', [token]);
+    res.clearCookie(cookie, { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', path: '/' });
+    res.sendStatus(204);
+  } catch (error) {
+    console.error('[EduLoLos API] Logout error:', error);
+    res.status(500).json({ error: 'Logout gagal.' });
+  }
+});
 app.get('/api/auth/session', async (req, res) => { const userId = await getAuth(req); if (!userId) return res.json({ user: null }); const result = await pool.query('SELECT id,email FROM users WHERE id = $1', [userId]); res.json({ user: result.rows[0] || null }); });
 app.get('/api/profiles/:id', async (req, res) => { const userId = await requireAuth(req, res); if (!userId || userId !== req.params.id) return; const result = await pool.query('SELECT * FROM profiles WHERE id = $1', [userId]); res.json(result.rows[0] || null); });
 app.patch('/api/profiles/:id', async (req, res) => { const userId = await requireAuth(req, res); if (!userId || userId !== req.params.id) return; const allowed = ['display_name','school','target_ptn','target_major','target_campus','onboarding_completed']; const fields = Object.keys(req.body).filter((key) => allowed.includes(key)); if (fields.length) await pool.query(`UPDATE profiles SET ${fields.map((f, i) => `${f} = $${i + 1}`).join(', ')}, updated_at = NOW() WHERE id = $${fields.length + 1}`, [...fields.map((f) => req.body[f]), userId]); const result = await pool.query('SELECT * FROM profiles WHERE id = $1', [userId]); res.json(result.rows[0]); });
