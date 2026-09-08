@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { NavPage, TaskItem, UserProfile } from './types';
-import { storage } from './utils/storage';
+import { getSession, onAuthStateChange, signOut } from './lib/supabase';
+import { getProfile, getUserTasks, updateProfile, createTask, updateTask, deleteTask, getUserStudySessions } from './lib/repository';
+import { ProgressPanel, type ProgressSession } from './components/ProgressPanel';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { MobileNav } from './components/MobileNav';
@@ -11,184 +13,215 @@ import { FlashcardView } from './components/FlashcardView';
 import { ScheduleView } from './components/ScheduleView';
 import { LiveTutorModal } from './components/modals/LiveTutorModal';
 import { EditProfileModal } from './components/modals/EditProfileModal';
+import { AuthPage } from './pages/AuthPage';
+import { OnboardingPage } from './pages/OnboardingPage';
+
+const UTBK_SNBT_DATE = new Date('2027-04-15T00:00:00+07:00');
+
+const getDaysUntilUTBK = () => {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const target = new Date(UTBK_SNBT_DATE.getFullYear(), UTBK_SNBT_DATE.getMonth(), UTBK_SNBT_DATE.getDate());
+  return Math.max(0, Math.ceil((target.getTime() - today.getTime()) / 86400000));
+};
+
+const emptyUser: UserProfile = {
+  name: '', school: '', targetPTN: '', targetMajor: '', targetCampus: '', avatar: '/its-logo.svg',
+  streakDays: 0, daysUntilUTBK: getDaysUntilUTBK(), readinessPercent: 0, lastTOScore: 0, currentScore: 0,
+  passingGrade: 0, targetScore: 0, dailyCompletedSessions: 0, dailyTargetSessions: 0,
+  totalQuestionsSolved: 0, solvedYesterday: 0, focusHours: 0,
+};
+
+const mapProfile = (profile: any): UserProfile => ({
+  ...emptyUser,
+  name: profile?.display_name || '',
+  school: profile?.school || '',
+  targetPTN: profile?.target_ptn || profile?.targetPTN || '',
+  targetMajor: profile?.target_major || profile?.targetMajor || '',
+  targetCampus: profile?.target_campus || profile?.targetCampus || '',
+});
 
 export const App: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<NavPage>('dashboard');
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isLiveTutorOpen, setIsLiveTutorOpen] = useState(false);
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
+  const [session, setSession] = useState<any>(undefined);
+  const [isGuest, setIsGuest] = useState(false);
+  const [user, setUser] = useState<UserProfile>(emptyUser);
+  const [dailyTasks, setDailyTasks] = useState<TaskItem[]>([]);
+  const [studySessions, setStudySessions] = useState<ProgressSession[]>([]);
+  const [onboardingRequired, setOnboardingRequired] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
-  // User Profile & Daily Tasks with persistent local storage
-  const [user, setUser] = useState<UserProfile>(() => storage.getUser());
-  const [dailyTasks, setDailyTasks] = useState<TaskItem[]>(() => storage.getTasks());
+  const loadUserData = async (authUser: any) => {
+    if (!authUser) { setSession(null); setLoading(false); return; }
+    setSession(authUser);
+    const profile = await getProfile(authUser.id);
+    const mappedProfile = mapProfile(profile);
+    setUser({ ...mappedProfile, daysUntilUTBK: getDaysUntilUTBK() });
+    const requiredProfileFields = [
+      mappedProfile.school,
+      mappedProfile.targetPTN,
+      mappedProfile.targetCampus,
+      mappedProfile.targetMajor,
+    ];
+    const needsAccountSetup = requiredProfileFields.some((value) => !value?.trim());
+    setOnboardingRequired(needsAccountSetup);
+    const [tasks, sessions] = await Promise.all([getUserTasks(authUser.id), getUserStudySessions(authUser.id)]);
+    setStudySessions(sessions as ProgressSession[]);
+    setDailyTasks(tasks.map((task: any) => ({
+      id: task.id, title: task.title, completed: task.completed,
+      subtitle: task.subject || undefined, badge: task.completed ? 'Selesai' : 'Berjalan',
+    })));
+    setLoading(false);
+  };
 
-  // Initialize theme from system or preference
   useEffect(() => {
     const savedTheme = localStorage.getItem('edulolos-theme');
-    if (savedTheme === 'dark') {
-      setIsDarkMode(true);
-      document.documentElement.classList.add('dark');
-    } else {
-      setIsDarkMode(false);
-      document.documentElement.classList.remove('dark');
-    }
+    const dark = savedTheme === 'dark';
+    setIsDarkMode(dark);
+    document.documentElement.classList.toggle('dark', dark);
+    getSession()
+      .then((currentSession) => loadUserData(currentSession?.user))
+      .catch(() => {
+        setSession(null);
+        setLoading(false);
+      });
+    const { data } = onAuthStateChange((authUser) => {
+      loadUserData(authUser).catch(() => {
+        setSession(null);
+        setLoading(false);
+      });
+    });
+    return () => data.subscription.unsubscribe();
   }, []);
+
+  const handleGuestAccess = () => {
+    setIsGuest(true);
+    setSession(null);
+    setUser(emptyUser);
+    setDailyTasks([]);
+    setStudySessions([]);
+    setOnboardingRequired(false);
+  };
+
+  const handleExitGuest = () => {
+    setIsGuest(false);
+    setCurrentPage('dashboard');
+    setLoading(false);
+  };
+
+  const handleSignOut = async () => {
+    if (isSigningOut) return;
+    setIsSigningOut(true);
+    try {
+      await signOut();
+      setSession(null);
+      setIsGuest(false);
+      setUser(emptyUser);
+      setDailyTasks([]);
+      setStudySessions([]);
+      setOnboardingRequired(false);
+      setCurrentPage('dashboard');
+    } catch (error) {
+      console.error('[v0] Logout failed:', error);
+    } finally {
+      setIsSigningOut(false);
+    }
+  };
 
   const handleToggleDarkMode = () => {
     const nextMode = !isDarkMode;
     setIsDarkMode(nextMode);
-    if (nextMode) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('edulolos-theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('edulolos-theme', 'light');
-    }
+    document.documentElement.classList.toggle('dark', nextMode);
+    localStorage.setItem('edulolos-theme', nextMode ? 'dark' : 'light');
   };
 
-  const handleUpdateUser = (updatedUser: UserProfile) => {
+  const handleUpdateUser = async (updatedUser: UserProfile) => {
     setUser(updatedUser);
-    storage.saveUser(updatedUser);
+    if (session && !isGuest) await updateProfile(session.id, {
+      display_name: updatedUser.name, school: updatedUser.school,
+      target_ptn: updatedUser.targetPTN, target_major: updatedUser.targetMajor,
+      target_campus: updatedUser.targetCampus, updated_at: new Date().toISOString(),
+    });
   };
 
-  const handleToggleTask = (taskId: string) => {
-    const updated = dailyTasks.map((t) =>
-      t.id === taskId ? { ...t, completed: !t.completed } : t
-    );
-    setDailyTasks(updated);
-    storage.saveTasks(updated);
+  const handleToggleTask = async (taskId: string) => {
+    const task = dailyTasks.find((item) => item.id === taskId);
+    if (!task) return;
+    const updated = { ...task, completed: !task.completed };
+    setDailyTasks((items) => items.map((item) => item.id === taskId ? updated : item));
+    if (!isGuest) await updateTask(taskId, { completed: updated.completed });
   };
 
-  const handleSaveTask = (task: TaskItem) => {
-    const existingIndex = dailyTasks.findIndex((t) => t.id === task.id);
-    let updated: TaskItem[];
-    if (existingIndex >= 0) {
-      updated = dailyTasks.map((t) => (t.id === task.id ? task : t));
+  const handleSaveTask = async (task: TaskItem) => {
+    if (!session || isGuest) return;
+    if (dailyTasks.some((item) => item.id === task.id)) {
+      await updateTask(task.id, { title: task.title, completed: task.completed, subject: task.subtitle || '' });
+      setDailyTasks((items) => items.map((item) => item.id === task.id ? task : item));
     } else {
-      updated = [task, ...dailyTasks];
+      const created = await createTask(session.id, task);
+      if (created) setDailyTasks((items) => [{ ...task, id: created.id }, ...items]);
     }
-    setDailyTasks(updated);
-    storage.saveTasks(updated);
   };
 
-  const handleDeleteTask = (taskId: string) => {
-    const updated = dailyTasks.filter((t) => t.id !== taskId);
-    setDailyTasks(updated);
-    storage.saveTasks(updated);
+  const handleDeleteTask = async (taskId: string) => {
+    setDailyTasks((items) => items.filter((item) => item.id !== taskId));
+    if (!isGuest) await deleteTask(taskId);
   };
 
-  const completedSessionCount = dailyTasks.filter((t) => t.completed).length + 2;
+  const handleExport = (format: 'json' | 'csv') => {
+    const payload = { profile: user, tasks: dailyTasks, studySessions };
+    const content = format === 'json'
+      ? JSON.stringify(payload, null, 2)
+      : ['tanggal,durasi_menit,soal_dikerjakan,soal_benar', ...studySessions.map((item) => `${item.created_at},${item.duration_minutes},${item.questions_answered},${item.questions_correct}`)].join('\\n');
+    const blob = new Blob([content], { type: format === 'json' ? 'application/json' : 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `edulolos-progress.${format}`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  if (loading) return <div className="min-h-screen bg-surface flex items-center justify-center text-on-surface">Memuat EduLoLos...</div>;
+  if (!session && !isGuest) return <AuthPage onAuthSuccess={() => getSession().then((currentSession) => loadUserData(currentSession?.user))} onGuestAccess={handleGuestAccess} />;
+  if (onboardingRequired) return <OnboardingPage userId={session.id} displayName={user.name || session.email?.split('@')[0] || ''} onComplete={() => loadUserData(session)} />;
+
+  const completedSessionCount = dailyTasks.filter((task) => task.completed).length;
 
   return (
     <div className="min-h-screen bg-surface text-on-surface flex flex-col font-body transition-colors duration-300">
-      {/* Desktop Sidebar */}
-      <Sidebar
-        currentPage={currentPage}
-        onSelectPage={setCurrentPage}
-        daysRemaining={user.daysUntilUTBK || 45}
-        targetPTN={user.targetPTN}
-        targetMajor={user.targetMajor}
-      />
-
-      {/* Top Header */}
-      <Header
-        isDarkMode={isDarkMode}
-        onToggleDarkMode={handleToggleDarkMode}
-        streakDays={user.streakDays || 14}
-        completedSessions={completedSessionCount}
-        targetSessions={user.dailyTargetSessions || 4}
-        user={user}
-        onOpenEditProfile={() => setIsEditProfileOpen(true)}
-      />
-
-      {/* Main Content Area */}
-      <main 
-        id="main-viewport"
-        className="flex-1 lg:pl-72 pt-16 pb-20 lg:pb-10 px-4 md:px-8 max-w-7xl w-full mx-auto"
-      >
+      <Sidebar currentPage={currentPage} onSelectPage={setCurrentPage} daysRemaining={user.daysUntilUTBK} targetPTN={user.targetPTN} targetMajor={user.targetMajor} />
+      <Header isDarkMode={isDarkMode} onToggleDarkMode={handleToggleDarkMode} streakDays={user.streakDays} completedSessions={completedSessionCount} targetSessions={user.dailyTargetSessions} user={user} onOpenEditProfile={() => setIsEditProfileOpen(true)} />
+      <main id="main-viewport" className="flex-1 lg:pl-72 pt-16 pb-20 lg:pb-10 px-4 md:px-8 max-w-7xl w-full mx-auto">
+        {isGuest && <div className="mb-2 mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary/20 bg-primary/10 px-4 py-3 text-sm text-on-surface"><span><strong>Mode Guest:</strong> progres ini hanya sementara di perangkat ini.</span><button type="button" onClick={handleExitGuest} className="font-bold text-primary hover:text-primary-container">Buat akun untuk menyimpan</button></div>}
         <div className="py-4 md:py-6">
           <AnimatePresence mode="wait">
-            {currentPage === 'dashboard' && (
-              <motion.div
-                key="dashboard"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.2 }}
-              >
-                <DashboardView
-                  onNavigate={setCurrentPage}
-                  onOpenLiveTutor={() => setIsLiveTutorOpen(true)}
-                  tasks={dailyTasks}
-                  onToggleTask={handleToggleTask}
-                  onSaveTask={handleSaveTask}
-                  onDeleteTask={handleDeleteTask}
-                  user={user}
-                  onOpenEditProfile={() => setIsEditProfileOpen(true)}
-                />
-              </motion.div>
-            )}
-
-            {currentPage === 'pomodoro-focus' && (
-              <motion.div
-                key="pomodoro-focus"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.2 }}
-              >
-                <PomodoroView />
-              </motion.div>
-            )}
-
-            {currentPage === 'flashcard-dan-kuis' && (
-              <motion.div
-                key="flashcard-dan-kuis"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.2 }}
-              >
-                <FlashcardView />
-              </motion.div>
-            )}
-
-            {currentPage === 'jadwal-dan-target' && (
-              <motion.div
-                key="jadwal-dan-target"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.2 }}
-              >
-                <ScheduleView onNavigate={setCurrentPage} />
-              </motion.div>
-            )}
+            {currentPage === 'dashboard' && <motion.div key="dashboard" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><div className="flex flex-col gap-6"><DashboardView onNavigate={setCurrentPage} onOpenLiveTutor={() => setIsLiveTutorOpen(true)} tasks={dailyTasks} onToggleTask={handleToggleTask} onSaveTask={handleSaveTask} onDeleteTask={handleDeleteTask} user={user} onOpenEditProfile={() => setIsEditProfileOpen(true)} /><ProgressPanel sessions={studySessions} user={user} onExport={handleExport} /></div></motion.div>}
+            {currentPage === 'pomodoro-focus' && <motion.div key="pomodoro-focus" initial={{ opacity: 0 }} animate={{ opacity: 1 }}><PomodoroView /></motion.div>}
+            {currentPage === 'flashcard-dan-kuis' && <motion.div key="flashcard-dan-kuis" initial={{ opacity: 0 }} animate={{ opacity: 1 }}><FlashcardView /></motion.div>}
+            {currentPage === 'jadwal-dan-target' && <motion.div key="jadwal-dan-target" initial={{ opacity: 0 }} animate={{ opacity: 1 }}><ScheduleView onNavigate={setCurrentPage} /></motion.div>}
           </AnimatePresence>
         </div>
       </main>
-
-      {/* Mobile Bottom Navigation */}
-      <MobileNav
-        currentPage={currentPage}
-        onSelectPage={setCurrentPage}
-      />
-
-      {/* Global Live Tutor Mentorship Modal */}
-      <LiveTutorModal
-        isOpen={isLiveTutorOpen}
-        onClose={() => setIsLiveTutorOpen(false)}
-      />
-
-      {/* Edit Profile & Target PTN Modal */}
-      <EditProfileModal
-        isOpen={isEditProfileOpen}
-        onClose={() => setIsEditProfileOpen(false)}
-        user={user}
-        onSaveProfile={handleUpdateUser}
-      />
+      <MobileNav currentPage={currentPage} onSelectPage={setCurrentPage} />
+      <LiveTutorModal isOpen={isLiveTutorOpen} onClose={() => setIsLiveTutorOpen(false)} />
+      <EditProfileModal isOpen={isEditProfileOpen} onClose={() => setIsEditProfileOpen(false)} user={user} onSaveProfile={handleUpdateUser} />
+      <button
+        type="button"
+        onClick={isGuest ? handleExitGuest : handleSignOut}
+        disabled={isSigningOut}
+        aria-busy={isSigningOut}
+        className="fixed bottom-4 right-4 z-40 rounded-xl bg-surface-container px-3 py-2 text-xs font-semibold text-on-surface-variant hover:text-on-surface disabled:cursor-wait disabled:opacity-60"
+      >
+        {isSigningOut ? 'Keluar...' : isGuest ? 'Keluar Guest' : 'Keluar'}
+      </button>
     </div>
   );
 };
 
 export default App;
+

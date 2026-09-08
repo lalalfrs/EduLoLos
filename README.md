@@ -1,15 +1,19 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# EduLoLos
 
-# Run and deploy your AI Studio app
+EduLoLos menggunakan Neon PostgreSQL sebagai database utama. Supabase dan MySQL lokal tidak dipakai lagi untuk autentikasi maupun data belajar.
 
-This contains everything you need to run your app locally.
+## Menjalankan secara lokal
 
-View your app in AI Studio: https://ai.studio/apps/c2864e66-70cf-40d3-b121-94fd099ce0e2
+Prasyarat: Node.js dan koneksi Neon aktif.
 
-## Run Locally
+1. Install dependency: `npm install`
+2. Schema Neon sudah dibuat dari `database/schema.sql`; file tersebut tetap menjadi referensi schema yang bisa diedit di GitHub.
+3. Pastikan environment project menyediakan `DATABASE_URL` dari integrasi Neon.
+4. Jalankan API di terminal pertama: `npm run api`
+5. Jalankan frontend di terminal kedua: `npm run dev`
+6. Buka `http://localhost:3000`.
 
+<<<<<<< HEAD
 **Prerequisites:**  Node.js
 
 
@@ -22,3 +26,6 @@ View your app in AI Studio: https://ai.studio/apps/c2864e66-70cf-40d3-b121-94fd0
 "# EduLoLos" 
 "# EduLost" 
 "# EduLost" 
+=======
+API Neon berjalan di `http://localhost:4000` saat lokal. Pada production, frontend memakai route same-origin `/api/*` melalui Vercel Function di `api/[...path].ts`, jadi jangan isi `VITE_API_URL` dengan `http://localhost:4000` saat deployment. Pastikan environment production memiliki `NEON_POSTGRES_URL` atau `DATABASE_URL`. Password disimpan sebagai bcrypt hash dan session memakai cookie HTTP-only. Backend memakai PostgreSQL parameterized queries dan semua data pengguna dibatasi dengan `user_id`.
+>>>>>>> eb3585696d8ff40064caa8e4752e542ea42ddcee
