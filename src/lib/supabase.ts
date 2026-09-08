@@ -1,51 +1,22 @@
-import { createClient } from '@supabase/supabase-js';
+const API_BASE = (import.meta as any).env?.VITE_API_URL || 'http://localhost:4000';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || import.meta.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables');
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const response = await fetch(`${API_BASE}${path}`, { ...options, credentials: 'include', headers: { 'Content-Type': 'application/json', ...(options.headers || {}) } });
+  const body = response.status === 204 ? null : await response.json();
+  if (!response.ok) throw new Error(body?.error || 'Request gagal');
+  return body as T;
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
-// Auth helper functions
 export const signUp = async (email: string, password: string, displayName: string) => {
-  return supabase.auth.signUp({
-    email,
-    password,
-    options: {
-      emailRedirectTo: import.meta.env.VITE_SUPABASE_REDIRECT_URL || import.meta.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/auth/callback`,
-      data: {
-        display_name: displayName,
-      },
-    },
-  });
+  try { return { data: await request<{ user: any }>('/api/auth/signup', { method: 'POST', body: JSON.stringify({ email, password, displayName }) }), error: null }; }
+  catch (error: any) { return { data: null, error }; }
 };
-
 export const signIn = async (email: string, password: string) => {
-  return supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
+  try { return { data: await request<{ user: any }>('/api/auth/signin', { method: 'POST', body: JSON.stringify({ email, password }) }), error: null }; }
+  catch (error: any) { return { data: null, error }; }
 };
-
-export const signOut = async () => {
-  return supabase.auth.signOut();
-};
-
-export const getSession = async () => {
-  const { data: { session } } = await supabase.auth.getSession();
-  return session;
-};
-
-export const getUser = async () => {
-  const { data: { user } } = await supabase.auth.getUser();
-  return user;
-};
-
-export const onAuthStateChange = (callback: (user: any) => void) => {
-  return supabase.auth.onAuthStateChange((_event, session) => {
-    callback(session?.user || null);
-  });
-};
+export const signOut = () => request('/api/auth/signout', { method: 'POST' });
+export const getSession = async () => { const data = await request<{ user: any | null }>('/api/auth/session'); return data.user ? { user: data.user } : null; };
+export const getUser = async () => (await getSession())?.user || null;
+export const onAuthStateChange = (callback: (user: any) => void) => ({ data: { subscription: { unsubscribe: () => undefined } } });
+export { request };
