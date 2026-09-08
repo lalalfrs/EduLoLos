@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import { NavPage, TaskItem, UserProfile } from './types';
 import { getSession, onAuthStateChange, signOut } from './lib/supabase';
-import { getProfile, getUserTasks, updateProfile, createTask, updateTask, deleteTask } from './lib/repository';
+import { getProfile, getUserTasks, updateProfile, createTask, updateTask, deleteTask, getUserStudySessions } from './lib/repository';
+import { ProgressPanel, type ProgressSession } from './components/ProgressPanel';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { MobileNav } from './components/MobileNav';
@@ -39,6 +40,7 @@ export const App: React.FC = () => {
   const [session, setSession] = useState<any>(undefined);
   const [user, setUser] = useState<UserProfile>(emptyUser);
   const [dailyTasks, setDailyTasks] = useState<TaskItem[]>([]);
+  const [studySessions, setStudySessions] = useState<ProgressSession[]>([]);
   const [onboardingRequired, setOnboardingRequired] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -48,7 +50,8 @@ export const App: React.FC = () => {
     const profile = await getProfile(authUser.id);
     setUser(mapProfile(profile));
     setOnboardingRequired(!profile?.onboarding_completed);
-    const tasks = await getUserTasks(authUser.id);
+    const [tasks, sessions] = await Promise.all([getUserTasks(authUser.id), getUserStudySessions(authUser.id)]);
+    setStudySessions(sessions as ProgressSession[]);
     setDailyTasks(tasks.map((task: any) => ({
       id: task.id, title: task.title, completed: task.completed,
       subtitle: task.subject || undefined, badge: task.completed ? 'Selesai' : 'Berjalan',
@@ -106,6 +109,20 @@ export const App: React.FC = () => {
     await deleteTask(taskId);
   };
 
+  const handleExport = (format: 'json' | 'csv') => {
+    const payload = { profile: user, tasks: dailyTasks, studySessions };
+    const content = format === 'json'
+      ? JSON.stringify(payload, null, 2)
+      : ['tanggal,durasi_menit,soal_dikerjakan,soal_benar', ...studySessions.map((item) => `${item.created_at},${item.duration_minutes},${item.questions_answered},${item.questions_correct}`)].join('\\n');
+    const blob = new Blob([content], { type: format === 'json' ? 'application/json' : 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `edulolos-progress.${format}`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   if (loading) return <div className="min-h-screen bg-surface flex items-center justify-center text-on-surface">Memuat EduLoLos...</div>;
   if (!session) return <AuthPage onAuthSuccess={() => getSession().then((currentSession) => loadUserData(currentSession?.user))} />;
   if (onboardingRequired) return <OnboardingPage userId={session.id} displayName={user.name || session.email?.split('@')[0] || ''} onComplete={() => loadUserData(session)} />;
@@ -119,7 +136,7 @@ export const App: React.FC = () => {
       <main id="main-viewport" className="flex-1 lg:pl-72 pt-16 pb-20 lg:pb-10 px-4 md:px-8 max-w-7xl w-full mx-auto">
         <div className="py-4 md:py-6">
           <AnimatePresence mode="wait">
-            {currentPage === 'dashboard' && <motion.div key="dashboard" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><DashboardView onNavigate={setCurrentPage} onOpenLiveTutor={() => setIsLiveTutorOpen(true)} tasks={dailyTasks} onToggleTask={handleToggleTask} onSaveTask={handleSaveTask} onDeleteTask={handleDeleteTask} user={user} onOpenEditProfile={() => setIsEditProfileOpen(true)} /></motion.div>}
+            {currentPage === 'dashboard' && <motion.div key="dashboard" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><div className="flex flex-col gap-6"><DashboardView onNavigate={setCurrentPage} onOpenLiveTutor={() => setIsLiveTutorOpen(true)} tasks={dailyTasks} onToggleTask={handleToggleTask} onSaveTask={handleSaveTask} onDeleteTask={handleDeleteTask} user={user} onOpenEditProfile={() => setIsEditProfileOpen(true)} /><ProgressPanel sessions={studySessions} user={user} onExport={handleExport} /></div></motion.div>}
             {currentPage === 'pomodoro-focus' && <motion.div key="pomodoro-focus" initial={{ opacity: 0 }} animate={{ opacity: 1 }}><PomodoroView /></motion.div>}
             {currentPage === 'flashcard-dan-kuis' && <motion.div key="flashcard-dan-kuis" initial={{ opacity: 0 }} animate={{ opacity: 1 }}><FlashcardView /></motion.div>}
             {currentPage === 'jadwal-dan-target' && <motion.div key="jadwal-dan-target" initial={{ opacity: 0 }} animate={{ opacity: 1 }}><ScheduleView onNavigate={setCurrentPage} /></motion.div>}
