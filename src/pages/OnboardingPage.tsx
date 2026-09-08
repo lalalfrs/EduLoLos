@@ -6,19 +6,26 @@ import { updateProfile } from '../lib/repository';
 interface OnboardingPageProps {
   userId: string;
   displayName: string;
+  initialProfile?: Partial<{
+    school: string;
+    targetPTN: string;
+    targetMajor: string;
+    targetCampus: string;
+    weeklyGoalMinutes: number;
+  }>;
   onComplete: () => void;
 }
 
-export const OnboardingPage: React.FC<OnboardingPageProps> = ({ userId, displayName, onComplete }) => {
+export const OnboardingPage: React.FC<OnboardingPageProps> = ({ userId, displayName, initialProfile, onComplete }) => {
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [formData, setFormData] = useState({
-      school: '',
-    targetPTN: '',
-    targetMajor: '',
-    targetCampus: '',
-    weeklyGoalMinutes: 300,
+    school: initialProfile?.school || '',
+    targetPTN: initialProfile?.targetPTN || '',
+    targetMajor: initialProfile?.targetMajor || '',
+    targetCampus: initialProfile?.targetCampus || '',
+    weeklyGoalMinutes: initialProfile?.weeklyGoalMinutes || 300,
   });
 
   const steps = [
