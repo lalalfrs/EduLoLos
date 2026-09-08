@@ -65,8 +65,18 @@ export const App: React.FC = () => {
     const dark = savedTheme === 'dark';
     setIsDarkMode(dark);
     document.documentElement.classList.toggle('dark', dark);
-    getSession().then((currentSession) => loadUserData(currentSession?.user));
-    const { data } = onAuthStateChange((authUser) => loadUserData(authUser));
+    getSession()
+      .then((currentSession) => loadUserData(currentSession?.user))
+      .catch(() => {
+        setSession(null);
+        setLoading(false);
+      });
+    const { data } = onAuthStateChange((authUser) => {
+      loadUserData(authUser).catch(() => {
+        setSession(null);
+        setLoading(false);
+      });
+    });
     return () => data.subscription.unsubscribe();
   }, []);
 

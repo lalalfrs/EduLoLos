@@ -1,10 +1,25 @@
 const API_BASE = (import.meta as any).env?.VITE_API_URL || 'http://localhost:4000';
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${API_BASE}${path}`, { ...options, credentials: 'include', headers: { 'Content-Type': 'application/json', ...(options.headers || {}) } });
-  const body = response.status === 204 ? null : await response.json();
-  if (!response.ok) throw new Error(body?.error || 'Request gagal');
-  return body as T;
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 8000);
+  try {
+    const response = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      signal: options.signal || controller.signal,
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+    });
+    const body = response.status === 204 ? null : await response.json().catch(() => null);
+    if (!response.ok) throw new Error(body?.error || `Request gagal (${response.status})`);
+    return body as T;
+  } catch (error: any) {
+    if (error?.name === 'AbortError') throw new Error('Server API tidak merespons. Jalankan npm run api terlebih dahulu.');
+    if (error instanceof TypeError) throw new Error('API lokal tidak terhubung. Jalankan npm run api dan pastikan port 4000 aktif.');
+    throw error;
+  } finally {
+    window.clearTimeout(timeout);
+  }
 }
 
 export const signUp = async (email: string, password: string, displayName: string) => {

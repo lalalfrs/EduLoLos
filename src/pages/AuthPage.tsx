@@ -79,7 +79,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess, onGuestAccess
         }
       } else {
         setSuccess('Login berhasil!');
-        setTimeout(() => onAuthSuccess(), 1000);
+        setTimeout(() => onAuthSuccess(), 250);
       }
     } catch (err) {
       setError('Terjadi kesalahan. Silakan coba lagi.');
