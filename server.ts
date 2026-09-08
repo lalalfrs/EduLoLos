@@ -21,10 +21,41 @@ const cookie = 'edulolos_session';
 app.use(express.json());
 app.use(cookieParser());
 app.use((_req, res, next) => { res.setHeader('Access-Control-Allow-Origin', process.env.APP_ORIGIN || 'http://localhost:3000'); res.setHeader('Access-Control-Allow-Credentials', 'true'); res.setHeader('Access-Control-Allow-Headers', 'Content-Type'); res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS'); if (_req.method === 'OPTIONS') return res.sendStatus(204); next(); });
+app.get('/api/health', async (_req, res) => {
+  try {
+    await pool.query('SELECT 1');
+    res.json({ ok: true, database: 'connected' });
+  } catch (error) {
+    console.error('[EduLoLos API] Health check failed:', error);
+    res.status(503).json({ ok: false, database: 'unavailable' });
+  }
+});
+
 const getAuth = async (req: express.Request) => { const token = req.cookies[cookie]; if (!token) return null; const result = await pool.query('SELECT user_id FROM sessions WHERE id = $1 AND expires_at > NOW()', [token]); return result.rows[0]?.user_id || null; };
 const requireAuth = async (req: express.Request, res: express.Response) => { const userId = await getAuth(req); if (!userId) { res.status(401).json({ error: 'Unauthenticated' }); return null; } return userId; };
 const startSession = async (res: express.Response, userId: string) => { const id = randomBytes(32).toString('hex'); await pool.query("INSERT INTO sessions (id,user_id,expires_at) VALUES ($1,$2,NOW() + INTERVAL '7 days')", [id, userId]); res.cookie(cookie, id, { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', maxAge: 604800000 }); };
-app.post('/api/auth/signup', async (req, res) => { try { const email = String(req.body.email || '').toLowerCase().trim(); const password = String(req.body.password || ''); const displayName = String(req.body.displayName || ''); if (!email || password.length < 6) return res.status(400).json({ error: 'Email dan password minimal 6 karakter wajib diisi.' }); const id = randomUUID(); await pool.query('INSERT INTO users (id,email,password_hash) VALUES ($1,$2,$3)', [id, email, await bcrypt.hash(password, 12)]); await pool.query('INSERT INTO profiles (id,display_name) VALUES ($1,$2)', [id, displayName]); await startSession(res, id); res.status(201).json({ user: { id, email } }); } catch (e: any) { res.status(e.code === '23505' ? 409 : 500).json({ error: e.code === '23505' ? 'Email sudah terdaftar.' : 'Pendaftaran gagal.' }); } });
+app.post('/api/auth/signup', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const email = String(req.body.email || '').toLowerCase().trim();
+    const password = String(req.body.password || '');
+    const displayName = String(req.body.displayName || '').trim();
+    if (!email || !displayName || password.length < 6) return res.status(400).json({ error: 'Nama, email, dan password minimal 6 karakter wajib diisi.' });
+    const id = randomUUID();
+    await client.query('BEGIN');
+    await client.query('INSERT INTO users (id,email,password_hash) VALUES ($1,$2,$3)', [id, email, await bcrypt.hash(password, 12)]);
+    await client.query('INSERT INTO profiles (id,display_name) VALUES ($1,$2)', [id, displayName]);
+    await client.query('COMMIT');
+    await startSession(res, id);
+    res.status(201).json({ user: { id, email } });
+  } catch (e: any) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    console.error('[EduLoLos API] Signup error:', e);
+    res.status(e.code === '23505' ? 409 : 500).json({ error: e.code === '23505' ? 'Email sudah terdaftar.' : 'Database tidak dapat menyelesaikan pendaftaran.' });
+  } finally {
+    client.release();
+  }
+});
 app.post('/api/auth/signin', async (req, res) => { const email = String(req.body.email || '').toLowerCase().trim(); const result = await pool.query('SELECT id,email,password_hash FROM users WHERE email = $1', [email]); const user = result.rows[0]; if (!user || !(await bcrypt.compare(String(req.body.password || ''), user.password_hash))) return res.status(401).json({ error: 'Email atau password tidak valid.' }); await startSession(res, user.id); res.json({ user: { id: user.id, email: user.email } }); });
 app.post('/api/auth/signout', async (req, res) => {
   try {
