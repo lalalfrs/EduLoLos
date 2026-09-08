@@ -30,9 +30,18 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
     try {
       const { error: authError } = await signUp(email, password, displayName);
       if (authError) {
-        setError(authError.message);
+        const message = authError.message.toLowerCase();
+        if (message.includes('rate limit') || message.includes('over_email_send_rate_limit')) {
+          setError('Batas pengiriman email Supabase sedang tercapai. Tunggu beberapa menit sebelum mencoba lagi, dan jangan tekan Daftar berulang kali.');
+        } else if (message.includes('email_address_invalid')) {
+          setError('Alamat email ditolak oleh Supabase. Gunakan email pribadi yang aktif, bukan alamat contoh atau email sementara.');
+        } else if (message.includes('password')) {
+          setError('Password harus memenuhi aturan keamanan Supabase. Gunakan minimal 6 karakter dengan kombinasi yang kuat.');
+        } else {
+          setError('Pendaftaran gagal. Periksa email dan koneksi Anda, lalu coba lagi.');
+        }
       } else {
-        setSuccess('Akun berhasil dibuat! Silakan verifikasi email Anda.');
+        setSuccess('Akun berhasil dibuat. Cek inbox dan folder spam untuk verifikasi email.');
         setTimeout(() => {
           setIsSignUp(false);
           setEmail('');
@@ -61,7 +70,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
     try {
       const { error: authError } = await signIn(email, password);
       if (authError) {
-        setError(authError.message);
+        const message = authError.message.toLowerCase();
+        if (message.includes('email not confirmed')) {
+          setError('Email belum diverifikasi. Cek inbox atau folder spam untuk tautan verifikasi.');
+        } else {
+          setError('Email atau password tidak valid.');
+        }
       } else {
         setSuccess('Login berhasil!');
         setTimeout(() => onAuthSuccess(), 1000);
