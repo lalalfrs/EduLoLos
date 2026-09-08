@@ -43,7 +43,8 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess, onGuestAccess
         } else if (message.includes('email sudah terdaftar')) {
           setError('Email ini sudah terdaftar. Silakan masuk atau gunakan email lain.');
         } else {
-          setError(authError.message || 'Pendaftaran gagal. Periksa email dan koneksi Anda, lalu coba lagi.');
+          const status = (authError as Error & { status?: number }).status;
+          setError(status ? `Request gagal (${status}). Deployment production belum memakai route API terbaru.` : authError.message || 'Pendaftaran gagal. Periksa email dan koneksi Anda, lalu coba lagi.');
         }
       } else {
         setSuccess('Akun berhasil dibuat. Cek inbox dan folder spam untuk verifikasi email.');

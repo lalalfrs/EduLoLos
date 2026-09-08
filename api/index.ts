@@ -29,7 +29,10 @@ async function createSession(res: VercelResponse, id: string) {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const queryPath = req.query.path;
-  const path = (Array.isArray(queryPath) ? queryPath.join('/') : String(queryPath || '')).replace(/^\//, '');
+  const queryValue = Array.isArray(queryPath) ? queryPath.join('/') : String(queryPath || '');
+  const urlPath = String(req.url || '').split('?')[0].replace(/^\/+/, '');
+  const rawPath = (queryValue || urlPath).replace(/^\/+/, '');
+  const path = rawPath.replace(/^api\//, '');
   try {
     if (path === 'health' && req.method === 'GET') { await pool.query('SELECT 1'); return send(res, 200, { ok: true, database: 'connected' }); }
     if (path === 'auth/signup' && req.method === 'POST') {
