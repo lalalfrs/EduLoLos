@@ -1,0 +1,6 @@
+{
+  "name": "EduLolos - UTBK & TKA Prep Platform",
+  "description": "Platform persiapan intensif UTBK-SNBT & TKA untuk Muhammad Hilal Alfaris dengan target Teknik Elektro ITS (Institut Teknologi Sepuluh Nopember), Pomodoro focus room, sistem CRUD flashcard kustom, jadwal time-blocking, dan active recall.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
