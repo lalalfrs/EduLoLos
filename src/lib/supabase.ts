@@ -14,7 +14,11 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
       headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
     });
     const body = response.status === 204 ? null : await response.json().catch(() => null);
-    if (!response.ok) throw new Error(body?.error || `Request gagal (${response.status})`);
+    if (!response.ok) {
+      const error = new Error(body?.error || `Request gagal (${response.status})`);
+      (error as Error & { status?: number }).status = response.status;
+      throw error;
+    }
     return body as T;
   } catch (error: any) {
     if (error?.name === 'AbortError') throw new Error('Server API tidak merespons. Periksa deployment API dan environment Neon.');
