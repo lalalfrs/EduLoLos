@@ -188,7 +188,14 @@ export const App: React.FC = () => {
 
   if (loading) return <div className="min-h-screen bg-surface flex items-center justify-center text-on-surface">Memuat EduLoLos...</div>;
   if (!session && !isGuest) return <AuthPage onAuthSuccess={() => getSession().then((currentSession) => loadUserData(currentSession?.user))} onGuestAccess={handleGuestAccess} />;
-  if (onboardingRequired) return <OnboardingPage userId={session.id} displayName={user.name || session.email?.split('@')[0] || ''} onComplete={() => loadUserData(session)} />;
+  if (onboardingRequired) return (
+    <OnboardingPage
+      userId={session.id}
+      displayName={user.name || session.email?.split('@')[0] || ''}
+      initialProfile={user}
+      onComplete={() => loadUserData(session)}
+    />
+  );
 
   const completedSessionCount = dailyTasks.filter((task) => task.completed).length;
 
