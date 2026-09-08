@@ -50,8 +50,14 @@ export const App: React.FC = () => {
     if (!authUser) { setSession(null); setLoading(false); return; }
     setSession(authUser);
     const profile = await getProfile(authUser.id);
-    setUser(mapProfile(profile));
-    setOnboardingRequired(!profile?.onboarding_completed);
+    const mappedProfile = mapProfile(profile);
+    setUser(mappedProfile);
+    const needsAccountSetup = !profile?.onboarding_completed
+      || !mappedProfile.school.trim()
+      || !mappedProfile.targetPTN.trim()
+      || !mappedProfile.targetCampus.trim()
+      || !mappedProfile.targetMajor.trim();
+    setOnboardingRequired(needsAccountSetup);
     const [tasks, sessions] = await Promise.all([getUserTasks(authUser.id), getUserStudySessions(authUser.id)]);
     setStudySessions(sessions as ProgressSession[]);
     setDailyTasks(tasks.map((task: any) => ({
