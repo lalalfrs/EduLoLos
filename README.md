@@ -1,22 +1,19 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# EduLoLos
 
-# Run and deploy your AI Studio app
+EduLoLos menggunakan MySQL lokal sebagai database utama. Supabase sudah tidak dipakai untuk autentikasi maupun data belajar.
 
-This contains everything you need to run your app locally.
+## Menjalankan secara lokal
 
-View your app in AI Studio: https://ai.studio/apps/c2864e66-70cf-40d3-b121-94fd099ce0e2
+Prasyarat: Node.js dan MySQL Server.
 
-## Run Locally
+1. Install dependency: `npm install`
+2. Buat database dan tabel dari file yang bisa kamu edit langsung di GitHub:
+   `mysql -u root -p < database/schema.sql`
+3. Salin `.env.example` menjadi `.env` lalu isi `MYSQL_PASSWORD` jika diperlukan.
+4. Jalankan API di terminal pertama: `npm run api`
+5. Jalankan frontend di terminal kedua: `npm run dev`
+6. Buka `http://localhost:3000`.
 
-**Prerequisites:**  Node.js
+API MySQL berjalan di `http://localhost:4000`. Password disimpan sebagai bcrypt hash dan session memakai cookie HTTP-only. Untuk mengubah struktur database, edit `database/schema.sql`, lalu import ulang pada database development.
 
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
-"# EduLoLos" 
-"# EduLoLos" 
+Catatan: MySQL yang hanya berjalan di laptop tidak dapat diakses deployment Vercel. Untuk online, gunakan MySQL yang dapat diakses publik atau self-host backend/API ini.
