@@ -16,9 +16,18 @@ import { EditProfileModal } from './components/modals/EditProfileModal';
 import { AuthPage } from './pages/AuthPage';
 import { OnboardingPage } from './pages/OnboardingPage';
 
+const UTBK_SNBT_DATE = new Date('2027-04-15T00:00:00+07:00');
+
+const getDaysUntilUTBK = () => {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const target = new Date(UTBK_SNBT_DATE.getFullYear(), UTBK_SNBT_DATE.getMonth(), UTBK_SNBT_DATE.getDate());
+  return Math.max(0, Math.ceil((target.getTime() - today.getTime()) / 86400000));
+};
+
 const emptyUser: UserProfile = {
   name: '', school: '', targetPTN: '', targetMajor: '', targetCampus: '', avatar: '/its-logo.svg',
-  streakDays: 0, daysUntilUTBK: 0, readinessPercent: 0, lastTOScore: 0, currentScore: 0,
+  streakDays: 0, daysUntilUTBK: getDaysUntilUTBK(), readinessPercent: 0, lastTOScore: 0, currentScore: 0,
   passingGrade: 0, targetScore: 0, dailyCompletedSessions: 0, dailyTargetSessions: 0,
   totalQuestionsSolved: 0, solvedYesterday: 0, focusHours: 0,
 };
@@ -51,7 +60,7 @@ export const App: React.FC = () => {
     setSession(authUser);
     const profile = await getProfile(authUser.id);
     const mappedProfile = mapProfile(profile);
-    setUser(mappedProfile);
+    setUser({ ...mappedProfile, daysUntilUTBK: getDaysUntilUTBK() });
     const needsAccountSetup = !profile?.onboarding_completed
       || !mappedProfile.school.trim()
       || !mappedProfile.targetPTN.trim()
