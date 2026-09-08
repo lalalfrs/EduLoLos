@@ -38,8 +38,12 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess, onGuestAccess
           setError('Alamat email ditolak oleh Supabase. Gunakan email pribadi yang aktif, bukan alamat contoh atau email sementara.');
         } else if (message.includes('password')) {
           setError('Password harus memenuhi aturan keamanan Supabase. Gunakan minimal 6 karakter dengan kombinasi yang kuat.');
+        } else if (message.includes('api lokal') || message.includes('database') || message.includes('server api') || message.includes('tidak terhubung')) {
+          setError(authError.message);
+        } else if (message.includes('email sudah terdaftar')) {
+          setError('Email ini sudah terdaftar. Silakan masuk atau gunakan email lain.');
         } else {
-          setError('Pendaftaran gagal. Periksa email dan koneksi Anda, lalu coba lagi.');
+          setError(authError.message || 'Pendaftaran gagal. Periksa email dan koneksi Anda, lalu coba lagi.');
         }
       } else {
         setSuccess('Akun berhasil dibuat. Cek inbox dan folder spam untuk verifikasi email.');
