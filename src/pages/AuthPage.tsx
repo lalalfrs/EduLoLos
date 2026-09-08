@@ -21,7 +21,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
     setError('');
     setSuccess('');
     
-    if (!email || !password || !displayName) {
+    if (!email || !password || (isSignUp && !displayName)) {
       setError('Semua field harus diisi');
       return;
     }
@@ -95,7 +95,7 @@ export const AuthPage: React.FC<AuthPageProps> = ({ onAuthSuccess }) => {
                   type="text"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="Muhammad Hilal Alfaris"
+                  placeholder="Nama lengkap"
                   className="w-full px-4 py-2.5 rounded-xl bg-surface-container-low border border-surface-container text-on-surface text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
                 />
               </div>

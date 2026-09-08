@@ -13,9 +13,10 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({ userId, displayN
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    school: '',
+      school: '',
     targetPTN: '',
     targetMajor: '',
+    targetCampus: '',
     weeklyGoalMinutes: 300,
   });
 
@@ -31,7 +32,7 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({ userId, displayN
       icon: '🏫',
       field: 'school',
       type: 'text',
-      placeholder: 'SMA Negeri 1 Surabaya',
+      placeholder: 'Nama sekolah',
     },
     {
       title: 'Target PTN / Program',
@@ -82,9 +83,10 @@ export const OnboardingPage: React.FC<OnboardingPageProps> = ({ userId, displayN
         await updateProfile(userId, {
           display_name: displayName,
           school: formData.school,
-          targetPTN: formData.targetPTN,
-          targetMajor: formData.targetMajor,
-          weeklyGoalMinutes: parseInt(formData.weeklyGoalMinutes as any),
+          target_ptn: formData.targetPTN,
+          target_major: formData.targetMajor,
+          target_campus: formData.targetCampus,
+          weekly_goal_minutes: Number(formData.weeklyGoalMinutes),
           onboarding_completed: true,
           updated_at: new Date(),
         });

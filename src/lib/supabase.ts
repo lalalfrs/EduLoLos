@@ -15,6 +15,7 @@ export const signUp = async (email: string, password: string, displayName: strin
     email,
     password,
     options: {
+      emailRedirectTo: import.meta.env.VITE_SUPABASE_REDIRECT_URL || import.meta.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/auth/callback`,
       data: {
         display_name: displayName,
       },
