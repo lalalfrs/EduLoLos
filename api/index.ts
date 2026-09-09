@@ -64,7 +64,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (adminMatch) {
       const admin = await adminId(req); if (!admin) return send(res, 403, { error: 'Akses admin diperlukan.' });
       const table = adminTables[adminMatch[1]]; const rowId = adminMatch[2]; if (!table) return send(res, 404, { error: 'Tabel tidak diizinkan.' });
-      if (req.method === 'GET' && !rowId) { const columns = table === 'users' ? 'id,email,is_admin,created_at' : '*'; const result = await pool.query(`SELECT ${columns} FROM ${table} ORDER BY created_at DESC LIMIT 500`); return send(res, 200, { rows: result.rows }); }
+      if (req.method === 'GET' && !rowId) {
+        const columns = table === 'users' ? 'id,email,is_admin,created_at' : '*';
+        const orderColumn = table === 'profiles' ? 'updated_at' : 'created_at';
+        const result = await pool.query(`SELECT ${columns} FROM ${table} ORDER BY ${orderColumn} DESC LIMIT 500`);
+        return send(res, 200, { rows: result.rows });
+      }
       if (req.method === 'DELETE' && rowId) { if (table === 'users' && rowId === admin) return send(res, 400, { error: 'Akun admin aktif tidak dapat dihapus.' }); await pool.query(`DELETE FROM ${table} WHERE id = $1`, [rowId]); return send(res, 204); }
       if (req.method === 'PATCH' && rowId) {
         const blocked = new Set(['id', 'created_at', 'updated_at', 'password_hash']);
