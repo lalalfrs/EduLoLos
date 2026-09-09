@@ -66,7 +66,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const table = adminTables[adminMatch[1]]; const rowId = adminMatch[2]; if (!table) return send(res, 404, { error: 'Tabel tidak diizinkan.' });
       if (req.method === 'GET' && !rowId) { const columns = table === 'users' ? 'id,email,is_admin,created_at' : '*'; const result = await pool.query(`SELECT ${columns} FROM ${table} ORDER BY created_at DESC LIMIT 500`); return send(res, 200, { rows: result.rows }); }
       if (req.method === 'DELETE' && rowId) { if (table === 'users' && rowId === admin) return send(res, 400, { error: 'Akun admin aktif tidak dapat dihapus.' }); await pool.query(`DELETE FROM ${table} WHERE id = $1`, [rowId]); return send(res, 204); }
-      if (req.method === 'PATCH' && rowId) { const blocked = new Set(['id','created_at','updated_at','password_hash']); const keys = Object.keys(req.body || {}).filter((key) => !blocked.has(key)); if (!keys.length) return send(res, 400, { error: 'Tidak ada perubahan.' }); const values = keys.map((key) => req.body[key]); const result = await pool.query(`UPDATE ${table} SET ${keys.map((key, index) => `"${key}" = $${index + 1}`).join(', ')} WHERE id = $${keys.length + 1} RETURNING *`, [...values, rowId]); return send(res, 200, { row: result.rows[0] }); }
+      if (req.method === 'PATCH' && rowId) {
+        const blocked = new Set(['id', 'created_at', 'updated_at', 'password_hash']);
+        const keys = Object.keys(req.body || {}).filter((key) => !blocked.has(key));
+        if (!keys.length) return send(res, 400, { error: 'Tidak ada perubahan.' });
+        const values = keys.map((key) => req.body[key]);
+        const result = await pool.query(`UPDATE ${table} SET ${keys.map((key, index) => `"${key}" = $${index + 1}`).join(', ')} WHERE id = $${keys.length + 1} RETURNING *`, [...values, rowId]);
+        return send(res, 200, { row: result.rows[0] });
+      }
+      if (table === 'users' && req.method === 'POST' && rowId === 'reset-password') {
+        const password = String(req.body?.password || '');
+        if (password.length < 6) return send(res, 400, { error: 'Password baru minimal 6 karakter.' });
+        if (req.body?.userId === admin) return send(res, 400, { error: 'Gunakan akun lain untuk mereset password admin aktif.' });
+        await pool.query('UPDATE users SET password_hash = $1 WHERE id = $2', [await bcrypt.hash(password, 12), req.body?.userId]);
+        return send(res, 200, { ok: true });
+      }
       return send(res, 405, { error: 'Method tidak didukung.' });
     }
     if (path === 'profile' && req.method === 'GET') { const id = await userId(req); if (!id) return send(res, 401, { error: 'Unauthorized' }); const result = await pool.query('SELECT * FROM profiles WHERE id=$1', [id]); return send(res, 200, { profile: result.rows[0] || null }); }

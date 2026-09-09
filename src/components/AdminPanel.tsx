@@ -30,6 +30,15 @@ export const AdminPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     setRows((current) => current.filter((row) => String(row.id) !== id));
   };
 
+  const resetPassword = async (userId: string) => {
+    const password = window.prompt('Masukkan password baru (minimal 6 karakter):');
+    if (!password) return;
+    const response = await fetch('/api/admin/users/reset-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify({ userId, password }) });
+    const body = await response.json().catch(() => null);
+    if (!response.ok) { setError(body?.error || 'Gagal mereset password.'); return; }
+    setError('Password berhasil direset.');
+  };
+
   const update = async (row: Row) => {
     const editable = Object.fromEntries(Object.entries(row).filter(([key]) => !['id', 'created_at', 'updated_at', 'password_hash'].includes(key)));
     const response = await fetch(`/api/admin/${table}/${row.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(editable) });
@@ -46,7 +55,7 @@ export const AdminPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
       <div className="mb-5 flex flex-wrap gap-2">{tables.map((item) => <button key={item} type="button" onClick={() => setTable(item)} className={`rounded-xl px-4 py-2 text-sm font-bold ${table === item ? 'bg-primary text-on-primary' : 'bg-surface-container'}`}>{item}</button>)}</div>
       {error && <p role="alert" className="mb-4 rounded-xl border border-error/30 bg-error/10 px-4 py-3 text-error">{error}</p>}
       <div className="overflow-auto rounded-2xl bg-surface-container p-4">
-        {loading ? <p>Memuat data...</p> : rows.length === 0 ? <p className="text-on-surface-variant">Tidak ada data.</p> : <table className="min-w-full text-left text-sm"><thead><tr>{Object.keys(rows[0]).filter((key) => key !== 'password_hash').map((key) => <th key={key} className="border-b border-outline/20 px-3 py-3 font-bold">{key}</th>)}<th className="border-b border-outline/20 px-3 py-3">Aksi</th></tr></thead><tbody>{rows.map((row) => <tr key={String(row.id)}>{Object.entries(row).filter(([key]) => key !== 'password_hash').map(([key, value]) => <td key={key} className="border-b border-outline/10 px-3 py-3 align-top"><input aria-label={`${key} ${row.id}`} defaultValue={value == null ? '' : String(value)} readOnly={['id', 'created_at', 'updated_at'].includes(key)} onChange={(event) => { row[key] = event.target.value; }} className="min-w-32 rounded-lg bg-surface px-2 py-1 text-xs" /></td>)}<td className="flex gap-2 border-b border-outline/10 px-3 py-3"><button type="button" onClick={() => update(row)} className="rounded-lg bg-primary px-3 py-1 text-xs font-bold text-on-primary">Simpan</button><button type="button" onClick={() => remove(String(row.id))} className="rounded-lg bg-error/15 px-3 py-1 text-xs font-bold text-error">Hapus</button></td></tr>)}</tbody></table>}
+        {loading ? <p>Memuat data...</p> : rows.length === 0 ? <p className="text-on-surface-variant">Tidak ada data.</p> : <table className="min-w-full text-left text-sm"><thead><tr>{Object.keys(rows[0]).filter((key) => key !== 'password_hash').map((key) => <th key={key} className="border-b border-outline/20 px-3 py-3 font-bold">{key}</th>)}<th className="border-b border-outline/20 px-3 py-3">Aksi</th></tr></thead><tbody>{rows.map((row) => <tr key={String(row.id)}>{Object.entries(row).filter(([key]) => key !== 'password_hash').map(([key, value]) => <td key={key} className="border-b border-outline/10 px-3 py-3 align-top"><input aria-label={`${key} ${row.id}`} defaultValue={value == null ? '' : String(value)} readOnly={['id', 'created_at', 'updated_at'].includes(key)} onChange={(event) => { row[key] = event.target.value; }} className="min-w-32 rounded-lg bg-surface px-2 py-1 text-xs" /></td>)}<td className="flex gap-2 border-b border-outline/10 px-3 py-3"><button type="button" onClick={() => update(row)} className="rounded-lg bg-primary px-3 py-1 text-xs font-bold text-on-primary">Simpan</button>{table === 'users' && <button type="button" onClick={() => resetPassword(String(row.id))} className="rounded-lg bg-secondary/15 px-3 py-1 text-xs font-bold text-secondary">Reset password</button>}<button type="button" onClick={() => remove(String(row.id))} className="rounded-lg bg-error/15 px-3 py-1 text-xs font-bold text-error">Hapus</button></td></tr>)}</tbody></table>}
       </div>
     </div>
   </section>;

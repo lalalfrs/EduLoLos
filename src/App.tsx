@@ -55,7 +55,6 @@ export const App: React.FC = () => {
   const [onboardingRequired, setOnboardingRequired] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const [showAdminPanel, setShowAdminPanel] = useState(false);
 
   const loadUserData = async (authUser: any) => {
     if (!authUser) { setSession(null); setLoading(false); return; }
@@ -190,7 +189,7 @@ export const App: React.FC = () => {
 
   if (loading) return <div className="min-h-screen bg-surface flex items-center justify-center text-on-surface">Memuat EduLoLos...</div>;
   if (!session && !isGuest) return <AuthPage onAuthSuccess={() => getSession().then((currentSession) => loadUserData(currentSession?.user))} onGuestAccess={handleGuestAccess} />;
-  if (session?.is_admin && showAdminPanel) return <AdminPanel onClose={() => setShowAdminPanel(false)} />;
+  if (session?.is_admin) return <AdminPanel onClose={() => undefined} />;
   if (onboardingRequired) return (
     <OnboardingPage
       userId={session.id}
@@ -205,7 +204,6 @@ export const App: React.FC = () => {
   return (
     <div className="min-h-screen bg-surface text-on-surface flex flex-col font-body transition-colors duration-300">
       <Sidebar currentPage={currentPage} onSelectPage={setCurrentPage} daysRemaining={user.daysUntilUTBK} targetPTN={user.targetPTN} targetMajor={user.targetMajor} />
-      {session?.is_admin && <button type="button" onClick={() => setShowAdminPanel(true)} className="fixed right-4 top-4 z-50 rounded-xl bg-primary px-3 py-2 text-xs font-bold text-on-primary shadow-lg">Admin DB</button>}
       <Header isDarkMode={isDarkMode} onToggleDarkMode={handleToggleDarkMode} streakDays={user.streakDays} completedSessions={completedSessionCount} targetSessions={user.dailyTargetSessions} user={user} onOpenEditProfile={() => setIsEditProfileOpen(true)} />
       <main id="main-viewport" className="flex-1 lg:pl-72 pt-16 pb-20 lg:pb-10 px-4 md:px-8 max-w-7xl w-full mx-auto">
         {isGuest && <div className="mb-2 mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary/20 bg-primary/10 px-4 py-3 text-sm text-on-surface"><span><strong>Mode Guest:</strong> progres ini hanya sementara di perangkat ini.</span><button type="button" onClick={handleExitGuest} className="font-bold text-primary hover:text-primary-container">Buat akun untuk menyimpan</button></div>}
